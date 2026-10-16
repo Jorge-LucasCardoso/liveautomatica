@@ -4,16 +4,26 @@ const overlay = location.pathname === '/overlay';
 const sound = new SoundPlayer();
 let previous = null;
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+const bonusLabel = seconds => seconds % 60 === 0 ? `+${seconds / 60} min` : `+${seconds} s`;
 function audioStatus() {
   const running = sound.context?.state === 'running';
-  $('audio-status').textContent = !sound.localEnabled ? 'Áudio silenciado neste navegador.' : !sound.enabled ? 'Sons da transmissão desativados.' : running ? 'Áudio liberado neste navegador.' : 'Clique em “Ativar e testar som” para liberar o áudio.';
-  $('unlock-overlay').hidden = !overlay || running || !sound.enabled || !sound.localEnabled || !sound.volume;
+  const audible = sound.localEnabled && ((sound.enabled && sound.volume > 0) || (sound.musicEnabled && sound.musicVolume > 0));
+  $('audio-status').textContent = !sound.localEnabled ? 'Áudio silenciado neste navegador.' : !audible ? 'Música e efeitos silenciados.' : running ? 'Áudio liberado neste navegador.' : 'Clique em “Ativar e testar som” para liberar o áudio.';
+  $('unlock-overlay').hidden = !overlay || running || !audible;
 }
 async function unlockAudio() {
   try { await sound.unlock(); } catch { /* User can retry using the explicit activation button. */ }
   audioStatus();
 }
 function giftFeedback(event) {
+  if (event.side === 'time') {
+    sound.play('galaxy');
+    const bonus = $('time-bonus');
+    bonus.textContent = '🌌 ' + bonusLabel(event.seconds);
+    bonus.getAnimations().forEach(animation=>animation.cancel());
+    bonus.animate([{opacity:0,transform:'translateY(5px)'},{opacity:1,transform:'translateY(0)',offset:.15},{opacity:1,offset:.7},{opacity:0,transform:reducedMotion.matches?'none':'translateY(-10px)'}],{duration:1800});
+    return;
+  }
   sound.play('gift',event.side);
   const portrait = $('portrait-' + event.side);
   const pulse = portrait.querySelector('.portrait-pulse');
@@ -35,10 +45,17 @@ let initialized = false, eventKey = '';
 const format = n => n.toLocaleString('pt-BR', {minimumFractionDigits:1, maximumFractionDigits:1}) + '%';
 function render(s) {
   const effects = planEffects(previous,s);
-  sound.configure(s.settings.effects || {enabled:true,volume:.35},$('local-audio').checked);
+  const audio = {...s.settings.effects};
+  if (document.activeElement === $('sound-volume')) audio.volume = Number($('sound-volume').value)/100;
+  if (document.activeElement === $('music-volume')) audio.musicVolume = Number($('music-volume').value)/100;
+  sound.configure(audio,$('local-audio').checked);
+  sound.setPlaying(s.phase !== 'waiting');
   $('sounds-enabled').checked = sound.enabled;
   if (document.activeElement !== $('sound-volume')) $('sound-volume').value = Math.round(sound.volume * 100);
   $('volume-value').textContent = Math.round(sound.volume * 100) + '%';
+  $('music-enabled').checked = sound.musicEnabled;
+  if (document.activeElement !== $('music-volume')) $('music-volume').value = Math.round(sound.musicVolume * 100);
+  $('music-volume-value').textContent = Math.round(sound.musicVolume * 100) + '%';
   for (const side of ['lula','flavio']) {
     const state = portraitState(s.scores,side);
     const portrait = $('portrait-' + side);
@@ -72,21 +89,34 @@ function render(s) {
     $('winner-percent').textContent = ['lula','flavio'].includes(s.winner) ? format(s.percentages[s.winner]) : '';
     $('restart').textContent = s.remaining;
   }
-  const key = JSON.stringify(s.events);
+  $('queue-status').textContent = s.pendingParticipants ? `${s.pendingParticipants} NA FILA` : '✦';
+  $('galaxy-rule').textContent = `🌌 GALÁXIA = ${bonusLabel(s.settings.galaxySeconds).toUpperCase()}`;
+  document.querySelector('[data-side="time"]').textContent = `🌌 Galáxia · ${bonusLabel(s.settings.galaxySeconds)}`;
+  const participants = s.participants || [];
+  const key = JSON.stringify(participants.map(event=>event.id));
   if (key !== eventKey) {
     eventKey = key; $('events').replaceChildren();
-    if (!s.events.length) {const p=document.createElement('p'); p.className='no-events'; p.textContent='Os presentes recebidos aparecem aqui'; $('events').append(p);}
-    for (const event of s.events) {
+    if (!participants.length) {const p=document.createElement('p'); p.className='no-events'; p.textContent='Sua foto e @ aparecem aqui ao participar'; $('events').append(p);}
+    for (const event of participants) {
       const row = document.createElement('div'); row.className = 'event ' + event.side;
-      for (const [tag,cls,text] of [['span','symbol',event.side === 'lula' ? '🌹' : '🤍'],['b','count','+' + event.count],['span','username','@' + event.user],['span','side',event.side === 'lula' ? 'Lula' : 'Flávio']]) {
-        const el = document.createElement(tag); el.className = cls; el.textContent = text; row.append(el);
+      const avatar = document.createElement('div'); avatar.className='avatar'; avatar.textContent=event.user.charAt(0).toUpperCase();
+      if (event.avatar) {
+        const img=document.createElement('img');img.alt='Foto de @'+event.user;img.referrerPolicy='no-referrer';img.src=event.avatar;img.addEventListener('error',()=>img.remove());avatar.append(img);
       }
+      row.append(avatar);
+      const info=document.createElement('div');info.className='participant-info';
+      const name=document.createElement('strong');name.className='username';name.textContent='@'+event.user;
+      const detail=document.createElement('span');detail.className='participation-detail';
+      detail.textContent=event.side==='time'?`🌌 ${event.count} Galáxia · rodada ${event.round}`:`${event.side==='lula'?'🌹 Lula':'🤍 Flávio'} · rodada ${event.round}`;
+      info.append(name,detail);row.append(info);
+      const count=document.createElement('b');count.className='count';count.textContent=event.side==='time'?bonusLabel(event.seconds):'+'+event.count;row.append(count);
       $('events').append(row);
     }
   }
   if (!initialized) {
     $('username').value=s.settings.username; $('duration').value=s.settings.duration;
     $('lula-id').value=s.settings.ids.lula; $('flavio-id').value=s.settings.ids.flavio;
+    $('galaxy-id').value=s.settings.ids.galaxy; $('galaxy-seconds').value=s.settings.galaxySeconds;
     initialized=true;
   }
   $('catalog').textContent = s.catalog.length ? s.catalog.map(g => `${g.id} · ${g.name}`).join('\n') : 'Nenhum presente consultado.';
@@ -103,24 +133,35 @@ async function send(data) {
   catch(e) { $('error').textContent=e.message; }
 }
 document.querySelectorAll('[data-action]').forEach(button => button.addEventListener('click',()=>send({action:button.dataset.action})));
-document.querySelectorAll('[data-side]').forEach(button => button.addEventListener('click',()=>send({action:'gift',side:button.dataset.side,count:$('test-count').value,user:$('test-user').value})));
-document.addEventListener('pointerdown',()=>{if(sound.enabled && sound.localEnabled) void unlockAudio();});
-document.addEventListener('keydown',()=>{if(sound.enabled && sound.localEnabled) void unlockAudio();});
+document.querySelectorAll('[data-side]').forEach(button => button.addEventListener('click',()=>send({action:'gift',side:button.dataset.side,count:$('test-count').value,user:$('test-user').value,avatar:$('test-avatar').value})));
+document.addEventListener('pointerdown',()=>{if(sound.localEnabled) void unlockAudio();});
+document.addEventListener('keydown',()=>{if(sound.localEnabled) void unlockAudio();});
 $('test-sound').addEventListener('click',async()=>{await unlockAudio();sound.play('gift','lula');});
 $('unlock-overlay').addEventListener('click',unlockAudio);
 $('local-audio').addEventListener('change',async()=>{
-  sound.configure({enabled:sound.enabled,volume:sound.volume},$('local-audio').checked);
+  sound.configure({enabled:sound.enabled,volume:sound.volume,musicEnabled:sound.musicEnabled,musicVolume:sound.musicVolume},$('local-audio').checked);
   if(sound.localEnabled) await unlockAudio();
   audioStatus();
 });
-const saveAudio=()=>send({action:'effects',enabled:$('sounds-enabled').checked,volume:Number($('sound-volume').value)/100});
+const readAudio=()=>({enabled:$('sounds-enabled').checked,volume:Number($('sound-volume').value)/100,musicEnabled:$('music-enabled').checked,musicVolume:Number($('music-volume').value)/100});
+let savingAudio=false, pendingAudio=null;
+const saveAudio=async()=>{
+  pendingAudio=readAudio();
+  if(savingAudio) return;
+  savingAudio=true;
+  while(pendingAudio) {const value=pendingAudio;pendingAudio=null;await send({action:'effects',...value});}
+  savingAudio=false;
+};
 $('sounds-enabled').addEventListener('change',saveAudio);
-$('sound-volume').addEventListener('input',()=>{
-  const volume=Number($('sound-volume').value)/100;
-  sound.configure({enabled:$('sounds-enabled').checked,volume});
-  $('volume-value').textContent=Math.round(volume*100)+'%';
-});
-$('sound-volume').addEventListener('change',saveAudio);
+$('music-enabled').addEventListener('change',saveAudio);
+for (const id of ['sound-volume','music-volume']) {
+  $(id).addEventListener('input',()=>{
+    const audio=readAudio(); sound.configure(audio);
+    $('volume-value').textContent=Math.round(audio.volume*100)+'%';
+    $('music-volume-value').textContent=Math.round(audio.musicVolume*100)+'%';
+  });
+  $(id).addEventListener('change',saveAudio);
+}
 $('settings').addEventListener('submit',e=>{e.preventDefault();send({action:'settings',...Object.fromEntries(new FormData(e.target))});});
 const stream = new EventSource('/api/events');
 stream.onopen=()=>{previous=null;};

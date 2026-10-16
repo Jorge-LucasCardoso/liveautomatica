@@ -8,8 +8,10 @@ import {Game, receiveGift} from './game.js';
 const root = fileURLToPath(new URL('.', import.meta.url));
 let settings = {username: 'jorgedrummerhead', duration: 300, ids: {lula: '', flavio: ''}};
 try { settings = {...settings, ...JSON.parse(await readFile(root + '.local/settings.json', 'utf8'))}; } catch (e) { if (e.code !== 'ENOENT') throw e; }
-settings.effects = {enabled: true, volume: 0.35, ...settings.effects};
-const game = new Game({duration: settings.duration});
+settings.effects = {enabled: true, volume: 0.35, musicEnabled: true, musicVolume: 0.18, ...settings.effects};
+settings.ids = {lula: '', flavio: '', galaxy: '', ...settings.ids};
+settings.galaxySeconds ??= 300;
+const game = new Game({duration: settings.duration, galaxySeconds: settings.galaxySeconds});
 let mode = 'demo', status = 'Simulação • sem conexão com o TikTok', connection, busy = false;
 let catalog = [];
 const clients = new Set();
@@ -30,8 +32,10 @@ function rememberGift(id, name) {
 async function action(data) {
   switch (data.action) {
     case 'effects': {
-      if (typeof data.enabled !== 'boolean' || typeof data.volume !== 'number' || !Number.isFinite(data.volume) || data.volume < 0 || data.volume > 1) throw Error('Informe um volume entre 0 e 100%.');
-      settings.effects = {enabled: data.enabled, volume: data.volume};
+      const musicEnabled = data.musicEnabled ?? settings.effects.musicEnabled;
+      const musicVolume = data.musicVolume ?? settings.effects.musicVolume;
+      if (typeof data.enabled !== 'boolean' || typeof musicEnabled !== 'boolean' || [data.volume,musicVolume].some(volume=>typeof volume !== 'number' || !Number.isFinite(volume) || volume < 0 || volume > 1)) throw Error('Informe volumes entre 0 e 100%.');
+      settings.effects = {enabled: data.enabled, volume: data.volume, musicEnabled, musicVolume};
       await mkdir(root + '.local', {recursive: true});
       await writeFile(root + '.local/settings.json', JSON.stringify(settings, null, 2));
       break;
@@ -40,11 +44,15 @@ async function action(data) {
       if (mode === 'live' || game.phase !== 'waiting') throw Error('Pare a rodada e desconecte antes de configurar.');
       const duration = Number(data.duration);
       const username = String(data.username || '').replace(/^@/, '');
-      const ids = {lula: String(data.lula || '').trim(), flavio: String(data.flavio || '').trim()};
+      const ids = {lula: String(data.lula || '').trim(), flavio: String(data.flavio || '').trim(), galaxy: String(data.galaxy ?? settings.ids.galaxy).trim()};
+      const galaxySeconds = Number(data.galaxySeconds ?? settings.galaxySeconds);
       if (!/^[\w.]{2,32}$/.test(username) || !Number.isInteger(duration) || duration < 10 || duration > 3600) throw Error('Informe um @ válido e duração entre 10 e 3600 segundos.');
-      if (Object.values(ids).some(id => id && !/^\d+$/.test(id)) || (ids.lula && ids.lula === ids.flavio)) throw Error('Os IDs dos presentes devem ser numéricos e diferentes.');
-      settings = {...settings, username, duration, ids};
+      const mappedIds = Object.values(ids).filter(Boolean);
+      if (mappedIds.some(id => !/^\d+$/.test(id)) || new Set(mappedIds).size !== mappedIds.length) throw Error('Os IDs dos presentes devem ser numéricos e diferentes.');
+      if (!Number.isInteger(galaxySeconds) || galaxySeconds < 1 || galaxySeconds > 3600) throw Error('O bônus da Galáxia deve ser entre 1 e 3600 segundos.');
+      settings = {...settings, username, duration, ids, galaxySeconds};
       game.duration = duration;
+      game.galaxySeconds = galaxySeconds;
       await mkdir(root + '.local', {recursive: true});
       await writeFile(root + '.local/settings.json', JSON.stringify(settings, null, 2));
       break;
@@ -56,10 +64,11 @@ async function action(data) {
     case 'stop': game.stop(); break;
     case 'gift':
       if (mode !== 'demo') throw Error('Simulação desativada na live real.');
-      if (!game.gift(data.side, Number(data.count), data.user || 'teste')) throw Error('Inicie uma rodada e informe uma quantidade válida.');
+      if (!game.gift(data.side, Number(data.count), data.user || 'teste', undefined, data.avatar)) throw Error('Inicie uma rodada e informe uma quantidade válida.');
       break;
     case 'demo':
       game.stop();
+      game.clearPresentations();
       mode = 'demo';
       await connection?.disconnect();
       connection = undefined;
@@ -73,7 +82,7 @@ async function action(data) {
     }
     case 'connect': {
       if (mode === 'live' && connection?.isConnected) break;
-      game.stop(); mode = 'live'; status = 'Conectando ao TikTok…'; broadcast();
+      game.stop(); game.clearPresentations(); mode = 'live'; status = 'Conectando ao TikTok…'; broadcast();
       const current = createConnection(); connection = current;
       current.on(WebcastEvent.GIFT, data => {
         if (connection !== current || mode !== 'live') return;

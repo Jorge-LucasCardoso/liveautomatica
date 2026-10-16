@@ -7,18 +7,20 @@
     <header><span class="live"><i></i> ENQUETE AO VIVO</span><span id="mode">SIMULAÇÃO</span></header>
     <div class="round">RODADA <span id="round">01</span></div>
     <div class="clock"><span id="phase">AGUARDANDO INÍCIO</span><strong id="timer">05:00</strong></div>
+    <div id="time-bonus" aria-live="polite"></div>
     <div class="portraits" role="img" aria-label="Ilustração de Lula e Flávio Bolsonaro se encarando">
       <div id="portrait-lula" class="portrait lula"><div class="portrait-pulse"><img src="/hero.png" alt=""><span class="gift-burst" aria-hidden="true"></span></div></div>
       <div id="portrait-flavio" class="portrait flavio"><div class="portrait-pulse"><img src="/hero.png" alt=""><span class="gift-burst" aria-hidden="true"></span></div></div>
       <span class="versus">×</span>
     </div>
     <div class="names"><div><small>🌹 TIME ROSA</small><h1>LULA</h1></div><div><small>TIME ROSA BRANCA</small><h1>FLÁVIO</h1><span>BOLSONARO</span></div></div>
-    <div class="activity"><div class="section-label">ÚLTIMOS PRESENTES <span>✦</span></div><div id="events" aria-live="polite"></div></div>
+    <div class="activity"><div class="section-label">PARTICIPAÇÕES <span id="queue-status">✦</span></div><div id="events" aria-live="polite"></div></div>
     <div class="scores"><div><strong id="lula-score">0</strong><span>PRESENTES</span></div><div><strong id="flavio-score">0</strong><span>PRESENTES</span></div></div>
     <div class="percentages"><strong id="lula-percent">50,0%</strong><strong id="flavio-percent">50,0%</strong></div>
     <div class="bar"><div id="lula-bar"></div></div>
     <p id="empty">A rodada começa com o primeiro presente</p>
     <div class="gifts"><div><span class="flower">🌹</span><strong>ROSA</strong><small>APOIE LULA</small></div><div class="gift-call"><span>ENVIE SEU</span><strong>PRESENTE</strong><span>1 UNIDADE = 1 PONTO</span></div><div><span class="flower white">🌹</span><strong>ROSA BRANCA</strong><small>APOIE FLÁVIO</small></div></div>
+    <div id="galaxy-rule">🌌 GALÁXIA = +5 MINUTOS</div>
     <footer><span id="account">@jorgedrummerhead</span><span>ENQUETE INFORMAL POR PRESENTES</span></footer>
     <div id="result" class="result" hidden><span>RODADA ENCERRADA</span><div id="winner-icon">🏆</div><h2 id="winner"></h2><strong id="winner-percent"></strong><p>Nova rodada em <b id="restart">5</b>s</p></div>
     <div id="waiting">Inicie uma rodada no painel</div>
@@ -31,15 +33,17 @@
     <div class="buttons"><button data-action="connect">Conectar TikTok</button><button data-action="demo">Modo simulação</button></div>
     <p id="error" role="alert"></p>
     <details open><summary>Sons e efeitos</summary>
-      <label class="check"><input id="sounds-enabled" type="checkbox" checked> Sons da transmissão</label>
-      <label>Volume <span id="volume-value">35%</span><input id="sound-volume" type="range" min="0" max="100" value="35"></label>
+      <label class="check"><input id="sounds-enabled" type="checkbox" checked> Efeitos sonoros</label>
+      <label>Volume dos efeitos <span id="volume-value">35%</span><input id="sound-volume" type="range" min="0" max="100" value="35"></label>
+      <label class="check"><input id="music-enabled" type="checkbox" checked> Música de videogame</label>
+      <label>Volume da música <span id="music-volume-value">18%</span><input id="music-volume" type="range" min="0" max="100" value="18"></label>
       <label class="check"><input id="local-audio" type="checkbox" checked> Ouvir neste navegador</label>
       <button id="test-sound">Ativar e testar som</button><p id="audio-status" class="hint" role="status">Clique para liberar o áudio neste navegador.</p>
       <p class="hint">Blip por presente, contagem nos 3 segundos finais e vinheta de resultado. No OBS, capture o áudio da fonte de navegador. Desmarque “Ouvir neste navegador” no painel para evitar som duplicado.</p>
     </details>
-    <details open><summary>Testar presentes</summary><p class="hint">Use apenas em simulação. Os testes não entram no placar da live real.</p><label>Nome do participante<input id="test-user" value="participante_teste" maxlength="60"></label><label>Quantidade<input id="test-count" type="number" min="1" max="100000" value="1"></label><div class="buttons"><button class="pink" data-side="lula">🌹 Rosa · Lula</button><button class="green" data-side="flavio">🤍 Rosa branca · Flávio</button></div></details>
+    <details open><summary>Testar presentes</summary><p class="hint">Até duas participações por vez, com 4 segundos para cada uma. As próximas aguardam na fila; votos e bônus de tempo são imediatos. A foto real vem do TikTok; sem foto, aparece a inicial.</p><label>Nome do participante<input id="test-user" value="participante_teste" maxlength="60"></label><label>Foto para teste (URL HTTPS, opcional)<input id="test-avatar" type="url" placeholder="https://..."></label><label>Quantidade<input id="test-count" type="number" min="1" max="100000" value="1"></label><div class="buttons"><button class="pink" data-side="lula">🌹 Rosa · Lula</button><button class="green" data-side="flavio">🤍 Rosa branca · Flávio</button></div><button class="galaxy-button" data-side="time">🌌 Galáxia · +5 minutos</button></details>
     <details><summary>Conta e presentes</summary><p class="hint">Pare e desconecte para alterar. Consulte o catálogo e confirme os presentes pelos IDs, sem adivinhar pelo nome.</p>
-      <form id="settings"><label>Conta TikTok<input name="username" id="username" value="jorgedrummerhead" required></label><label>Duração da rodada (segundos)<input name="duration" id="duration" type="number" min="10" max="3600" value="300" required></label><label>ID da rosa · Lula<input name="lula" id="lula-id" inputmode="numeric" list="gift-options" placeholder="Confirmar no catálogo"></label><label>ID da rosa branca · Flávio<input name="flavio" id="flavio-id" inputmode="numeric" list="gift-options" placeholder="Confirmar no catálogo"></label><datalist id="gift-options"></datalist><button type="submit">Salvar configuração</button></form>
+      <form id="settings"><label>Conta TikTok<input name="username" id="username" value="jorgedrummerhead" required></label><label>Duração da rodada (segundos)<input name="duration" id="duration" type="number" min="10" max="3600" value="300" required></label><label>ID da rosa · Lula<input name="lula" id="lula-id" inputmode="numeric" list="gift-options" placeholder="Confirmar no catálogo"></label><label>ID da rosa branca · Flávio<input name="flavio" id="flavio-id" inputmode="numeric" list="gift-options" placeholder="Confirmar no catálogo"></label><label>ID da Galáxia · bônus de tempo<input name="galaxy" id="galaxy-id" inputmode="numeric" list="gift-options" placeholder="Confirmar no catálogo"></label><label>Tempo por Galáxia (segundos)<input name="galaxySeconds" id="galaxy-seconds" type="number" min="1" max="3600" value="300" required></label><datalist id="gift-options"></datalist><button type="submit">Salvar configuração</button></form>
       <button data-action="catalog">Consultar catálogo do TikTok</button><pre id="catalog">Nenhum presente consultado.</pre>
     </details>
     <details><summary>Colocar na transmissão</summary><p>No OBS, adicione uma fonte de navegador com largura 1080 e altura 1920. Use o endereço deste servidor com o caminho <code>/overlay</code>. O painel de controle não aparece nessa tela.</p><p>A integração lê presentes; ela não inicia nem transmite a live. Se desconectar, a rodada para. Reconecte e inicie outra rodada.</p><p class="hint">Os presentes enviados durante os 5 segundos do resultado não pontuam. Combos pontuam ao serem concluídos.</p></details>
