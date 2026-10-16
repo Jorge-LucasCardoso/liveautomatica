@@ -7,6 +7,7 @@ export class Game {
     this.phase = 'waiting';
     this.scores = {lula: 0, flavio: 0};
     this.events = [];
+    this.eventSequence = 0;
     this.seen = new Set();
   }
   start() {
@@ -32,7 +33,7 @@ export class Game {
       if (this.seen.size > 10000) this.seen.delete(this.seen.values().next().value);
     }
     this.scores[side] += count;
-    this.events.unshift({side, count, user: String(user || 'Participante').slice(0, 60), at: this.now()});
+    this.events.unshift({id: ++this.eventSequence, side, count, user: String(user || 'Participante').slice(0, 60), at: this.now()});
     this.events = this.events.slice(0, 4);
     return true;
   }

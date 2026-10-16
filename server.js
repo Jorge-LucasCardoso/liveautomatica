@@ -8,6 +8,7 @@ import {Game, receiveGift} from './game.js';
 const root = fileURLToPath(new URL('.', import.meta.url));
 let settings = {username: 'jorgedrummerhead', duration: 300, ids: {lula: '', flavio: ''}};
 try { settings = {...settings, ...JSON.parse(await readFile(root + '.local/settings.json', 'utf8'))}; } catch (e) { if (e.code !== 'ENOENT') throw e; }
+settings.effects = {enabled: true, volume: 0.35, ...settings.effects};
 const game = new Game({duration: settings.duration});
 let mode = 'demo', status = 'Simulação • sem conexão com o TikTok', connection, busy = false;
 let catalog = [];
@@ -28,6 +29,13 @@ function rememberGift(id, name) {
 }
 async function action(data) {
   switch (data.action) {
+    case 'effects': {
+      if (typeof data.enabled !== 'boolean' || typeof data.volume !== 'number' || !Number.isFinite(data.volume) || data.volume < 0 || data.volume > 1) throw Error('Informe um volume entre 0 e 100%.');
+      settings.effects = {enabled: data.enabled, volume: data.volume};
+      await mkdir(root + '.local', {recursive: true});
+      await writeFile(root + '.local/settings.json', JSON.stringify(settings, null, 2));
+      break;
+    }
     case 'settings': {
       if (mode === 'live' || game.phase !== 'waiting') throw Error('Pare a rodada e desconecte antes de configurar.');
       const duration = Number(data.duration);
@@ -35,7 +43,7 @@ async function action(data) {
       const ids = {lula: String(data.lula || '').trim(), flavio: String(data.flavio || '').trim()};
       if (!/^[\w.]{2,32}$/.test(username) || !Number.isInteger(duration) || duration < 10 || duration > 3600) throw Error('Informe um @ válido e duração entre 10 e 3600 segundos.');
       if (Object.values(ids).some(id => id && !/^\d+$/.test(id)) || (ids.lula && ids.lula === ids.flavio)) throw Error('Os IDs dos presentes devem ser numéricos e diferentes.');
-      settings = {username, duration, ids};
+      settings = {...settings, username, duration, ids};
       game.duration = duration;
       await mkdir(root + '.local', {recursive: true});
       await writeFile(root + '.local/settings.json', JSON.stringify(settings, null, 2));
@@ -94,7 +102,7 @@ async function action(data) {
     default: throw Error('Ação desconhecida.');
   }
 }
-const files = {'/': ['index.html','text/html'], '/overlay': ['index.html','text/html'], '/app.js': ['app.js','text/javascript'], '/style.css': ['style.css','text/css'], '/hero.png': ['hero.png','image/png'], '/title.woff2':['title.woff2','font/woff2'], '/body.woff2':['body.woff2','font/woff2']};
+const files = {'/': ['index.html','text/html'], '/overlay': ['index.html','text/html'], '/app.js': ['app.js','text/javascript'], '/effects.js': ['effects.js','text/javascript'], '/style.css': ['style.css','text/css'], '/hero.png': ['hero.png','image/png'], '/title.woff2':['title.woff2','font/woff2'], '/body.woff2':['body.woff2','font/woff2']};
 const server = http.createServer(async (req, res) => {
   res.setHeader('X-Content-Type-Options','nosniff');
   res.setHeader('Cache-Control','no-store');

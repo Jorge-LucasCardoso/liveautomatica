@@ -1,5 +1,31 @@
+import {portraitState, planEffects, SoundPlayer} from './effects.js';
 const $ = id => document.getElementById(id);
 const overlay = location.pathname === '/overlay';
+const sound = new SoundPlayer();
+let previous = null;
+const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+function audioStatus() {
+  const running = sound.context?.state === 'running';
+  $('audio-status').textContent = !sound.localEnabled ? 'Áudio silenciado neste navegador.' : !sound.enabled ? 'Sons da transmissão desativados.' : running ? 'Áudio liberado neste navegador.' : 'Clique em “Ativar e testar som” para liberar o áudio.';
+  $('unlock-overlay').hidden = !overlay || running || !sound.enabled || !sound.localEnabled || !sound.volume;
+}
+async function unlockAudio() {
+  try { await sound.unlock(); } catch { /* User can retry using the explicit activation button. */ }
+  audioStatus();
+}
+function giftFeedback(event) {
+  sound.play('gift',event.side);
+  const portrait = $('portrait-' + event.side);
+  const pulse = portrait.querySelector('.portrait-pulse');
+  const burst = portrait.querySelector('.gift-burst');
+  burst.textContent = '+' + event.count;
+  if (!reducedMotion.matches) {
+    pulse.getAnimations().forEach(animation=>animation.cancel());
+    pulse.animate([{transform:'scale(1)'},{transform:'scale(1.13)',offset:.25},{transform:'scale(1)'}],{duration:420,easing:'ease-out'});
+  }
+  burst.getAnimations().forEach(animation=>animation.cancel());
+  burst.animate([{opacity:0,transform:'translateY(8px) scale(.8)'},{opacity:1,transform:'translateY(0) scale(1)',offset:.2},{opacity:0,transform:reducedMotion.matches?'none':'translateY(-30px) scale(1.05)'}],{duration:850,easing:'ease-out'});
+}
 if (overlay) {
   document.body.classList.add('overlay');
   const scale = () => document.documentElement.style.setProperty('--scale', Math.min(innerWidth / 432, innerHeight / 768));
@@ -8,6 +34,22 @@ if (overlay) {
 let initialized = false, eventKey = '';
 const format = n => n.toLocaleString('pt-BR', {minimumFractionDigits:1, maximumFractionDigits:1}) + '%';
 function render(s) {
+  const effects = planEffects(previous,s);
+  sound.configure(s.settings.effects || {enabled:true,volume:.35},$('local-audio').checked);
+  $('sounds-enabled').checked = sound.enabled;
+  if (document.activeElement !== $('sound-volume')) $('sound-volume').value = Math.round(sound.volume * 100);
+  $('volume-value').textContent = Math.round(sound.volume * 100) + '%';
+  for (const side of ['lula','flavio']) {
+    const state = portraitState(s.scores,side);
+    const portrait = $('portrait-' + side);
+    portrait.style.setProperty('--portrait-scale',state.scale);
+    portrait.style.setProperty('--gray',state.grayscale);
+    portrait.classList.toggle('leading',state.scale > 1);
+  }
+  for (const event of effects.gifts) giftFeedback(event);
+  for (const cue of effects.cues) sound.play(cue);
+  previous = s;
+  audioStatus();
   $('mode').textContent = s.mode === 'demo' ? 'SIMULAÇÃO' : s.connected ? 'PRESENTES TIKTOK' : 'TIKTOK DESCONECTADO';
   $('status').textContent = s.status;
   $('account').textContent = '@' + s.settings.username;
@@ -62,7 +104,27 @@ async function send(data) {
 }
 document.querySelectorAll('[data-action]').forEach(button => button.addEventListener('click',()=>send({action:button.dataset.action})));
 document.querySelectorAll('[data-side]').forEach(button => button.addEventListener('click',()=>send({action:'gift',side:button.dataset.side,count:$('test-count').value,user:$('test-user').value})));
+document.addEventListener('pointerdown',()=>{if(sound.enabled && sound.localEnabled) void unlockAudio();});
+document.addEventListener('keydown',()=>{if(sound.enabled && sound.localEnabled) void unlockAudio();});
+$('test-sound').addEventListener('click',async()=>{await unlockAudio();sound.play('gift','lula');});
+$('unlock-overlay').addEventListener('click',unlockAudio);
+$('local-audio').addEventListener('change',async()=>{
+  sound.configure({enabled:sound.enabled,volume:sound.volume},$('local-audio').checked);
+  if(sound.localEnabled) await unlockAudio();
+  audioStatus();
+});
+const saveAudio=()=>send({action:'effects',enabled:$('sounds-enabled').checked,volume:Number($('sound-volume').value)/100});
+$('sounds-enabled').addEventListener('change',saveAudio);
+$('sound-volume').addEventListener('input',()=>{
+  const volume=Number($('sound-volume').value)/100;
+  sound.configure({enabled:$('sounds-enabled').checked,volume});
+  $('volume-value').textContent=Math.round(volume*100)+'%';
+});
+$('sound-volume').addEventListener('change',saveAudio);
 $('settings').addEventListener('submit',e=>{e.preventDefault();send({action:'settings',...Object.fromEntries(new FormData(e.target))});});
 const stream = new EventSource('/api/events');
+stream.onopen=()=>{previous=null;};
 stream.onmessage=e=>render(JSON.parse(e.data));
-stream.onerror=()=>{$('status').textContent='Servidor desconectado. Verifique se o aplicativo está rodando.'; $('mode').textContent='SEM CONEXÃO'; $('waiting').textContent='Conexão com o placar interrompida'; $('waiting').hidden=false;};
+stream.onerror=()=>{previous=null;$('status').textContent='Servidor desconectado. Verifique se o aplicativo está rodando.'; $('mode').textContent='SEM CONEXÃO'; $('waiting').textContent='Conexão com o placar interrompida'; $('waiting').hidden=false;};
+// OBS can permit autoplay; a normal browser shows the activation button if blocked.
+if (overlay) void unlockAudio();
