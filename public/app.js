@@ -38,7 +38,13 @@ function giftFeedback(event) {
 }
 if (overlay) {
   document.body.classList.add('overlay');
-  const scale = () => document.documentElement.style.setProperty('--scale', Math.min(innerWidth / 432, innerHeight / 768));
+  // Capture the vertical scene sideways at full landscape-window resolution.
+  const vertical = new URLSearchParams(location.search).get('vertical') === '1';
+  document.body.classList.toggle('overlay-sideways', !vertical);
+  const scale = () => {
+    document.documentElement.style.setProperty('--scale', Math.min(innerWidth / (vertical ? 432 : 768), innerHeight / (vertical ? 768 : 432)));
+    document.documentElement.style.setProperty('--rotation', vertical ? '0deg' : '90deg');
+  };
   addEventListener('resize', scale); scale();
 }
 let initialized = false, eventKey = '';

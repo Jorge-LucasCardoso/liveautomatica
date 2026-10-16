@@ -11,7 +11,17 @@ npm ci --ignore-scripts
 npm start
 ```
 
-O servidor usa a porta 3000, apenas na máquina local. Abra o endereço local do servidor no navegador para acessar o painel. O caminho `/overlay` contém somente o placar, sem controles. No OBS da **mesma máquina**, use esse endereço com o caminho `/overlay` em uma fonte de navegador de 1080 × 1920. Um OBS no seu computador não alcança o endereço local de uma máquina na nuvem: execute este projeto no computador do OBS, ou providencie separadamente acesso seguro ao servidor. Este aplicativo não inicia a transmissão do TikTok.
+O servidor usa a porta 3000, apenas na máquina local. Abra o endereço local do servidor no navegador para acessar o painel. O caminho `/overlay` contém somente o placar, girado 90° para aproveitar uma janela horizontal. Abra em tela cheia (F11), capture essa janela no TikTok LIVE Studio e gire a fonte 90° para a esquerda para deixar o placar em pé. Para o formato vertical tradicional, use `/overlay?vertical=1`. No OBS da **mesma máquina**, use esse caminho vertical em uma fonte de navegador de 1080 × 1920. Um OBS no seu computador não alcança o endereço local de uma máquina na nuvem: execute este projeto no computador do OBS, ou providencie separadamente acesso seguro ao servidor. Este aplicativo não inicia a transmissão do TikTok.
+
+## Captura horizontal no TikTok LIVE Studio
+
+1. No painel, abra **Colocar na transmissão → Abrir overlay horizontal**, ou acrescente `/overlay` ao endereço local do servidor.
+2. No navegador, deixe o zoom em 100% e pressione **F11** para ocupar o monitor. A tela da live aparece deitada de propósito, usando a área horizontal da janela.
+3. Adicione **Captura de janela** no LIVE Studio e selecione o navegador do overlay.
+4. Gire a fonte **90° para a esquerda** no Studio para deixar a live em pé e ajuste à cena vertical.
+5. Quanto maior a resolução real da janela capturada, mais detalhes ela preserva. Girar evita desperdiçar a largura do monitor, mas não cria resolução além da captura. A ilustração original continua sendo a mesma.
+
+Se quiser capturar o placar em pé diretamente, abra `/overlay?vertical=1`. Ambos os formatos acompanham a janela, ficam centralizados e mantêm a proporção sem cortar o conteúdo. O painel tem links para as duas opções.
 
 ## Primeiro teste
 
