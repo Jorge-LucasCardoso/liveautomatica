@@ -1,0 +1,17 @@
+{
+  "name": "liveautomatica",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "hpagent": "1.2.0",
+    "tiktok-live-connector": "2.5.0"
+  }
+}
